@@ -3,6 +3,7 @@
 # G213Switcher GUI , july 2018
 # ----------------------------------------------------------------- #
 
+mkdir "$HOME/.config"
 rulesFile="$HOME/.config/g213switcher_rules.txt"
 settingsFile="$HOME/.config/g213switcher_settings.ini"
 mode="OFF"
@@ -16,123 +17,118 @@ start()
 	else
 		g213switcherl="KILL"
 	fi
-
-	dialog=$(zenity --question --title 'G213 Auto LED preklopnik' \
-	--text "-Nastavitve za G213 Auto LED preklopnik-\nPot do nastavitev: $settingsFile\nPot do pravil: $rulesFile\n\nNacin delovanja: $mode\nStanje 'g213switcher': $programState\n\nVid Trtnik, julij 2018\nUbuntu 16.04" \
-	--extra-button 'Dodaj pravilo' \
-	--extra-button 'Brisi pravila' \
+	
+	dialog=$(zenity --width 500 --height 100 --question --title 'G213 LED Switcher' \
+	--text "<b>-GUI for G213 LED switcher-</b>\n\nSettings path: $settingsFile\nRules path: $rulesFile\n\nMode: <b>$mode</b>\nStatus 'g213switcher': <b>$programState</b>\n\nVersion 1.0, july 2018\nAuthor: Vid Trtnik" \
+	--extra-button 'Add rule' \
+	--extra-button 'Delete rule' \
 	--ok-label "g213switcher $g213switcherl" \
-	--cancel-label 'IZHOD' \
+	--cancel-label 'EXIT' \
 	--timeout 0 2>/dev/null)
 	rc=$?
 	echo "${rc}-${dialog}"
 }
 
-oknoProcesi()
+windowProcesses()
 {
-	seznamProcesov=$(ps -e -o comm= --sort=args)
-	seznam=($(echo "${seznamProcesov[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
-	izbira=$(zenity --list --title "Dodajanje pravila..." --text "Izberi proces" --column "Ime" "${seznam[@]}" 2>/dev/null)
-	echo "$izbira"
+	procList=$(ps -e -o comm= --sort=args)
+	list=($(echo "${procList[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+	choice=$(zenity --list --title "Add rule..." --text "Choose process" --column "Name" "${list[@]}" 2>/dev/null)
+	echo "$choice"
 }
 
-oknoEfekt()
+windowEffect()
 {
-	izbira=$(zenity --list --title "Dodajanje pravila..." --text "Izberi nacin osvetlitve" --column "Nacin" "Staticno" "Utripanje" "RGB_Krog" 2>/dev/null)
-	echo "$izbira"
+	choice=$(zenity --list --title "Add rule..." --text "Lightning effect" --column "Mode" "Static" "Blinking" "RGB" 2>/dev/null)
+	echo "$choice"
 }
 
-oknoBarva()
+windowColors()
 {
-	izbira=$(zenity --color-selection 2>/dev/null)
-	echo "$izbira"
+	choice=$(zenity --color-selection 2>/dev/null)
+	echo "$choice"
 }
 
-oknoHitrost()
+windowSpeed()
 {
-	izbira=$(zenity --scale --text "Izberi hitrost svetlobnega učinka" --min-value=10 --max-value=100 --value=50 --step 10  2>/dev/null);
-	echo $izbira
+	choice=$(zenity --scale --text "Set lightning effect speed" --min-value=10 --max-value=100 --value=50 --step 10  2>/dev/null);
+	echo $choice
 }
 
-oknoIzberiDat()
+windowChooseFile()
 {
-	izbira=$(zenity --file-selection --title='Izberi datoteko' 2>/dev/null)
-	if [[ ! -z "$izbira" ]]; then
-		izbira=$(basename $izbira)
+	choice=$(zenity --file-selection --title='Choose file' 2>/dev/null)
+	if [[ ! -z "$choice" ]]; then
+		choice=$(basename $choice)
 	fi
-	echo $izbira
+	echo $choice
 }
 
-oknoVnesiIme()
+windowEnterName()
 {
-	izbira=$(zenity --entry --title="G213 Auto LED preklopnik" --text="Vnesi ime" 2>/dev/null)
-	echo $izbira
+	choice=$(zenity --entry --title="G213 LED switcher" --text="Enter name" 2>/dev/null)
+	echo $choice
 }
 
-oknoBrisi()
+windowDelete()
 {
 	RULES=()
 	while read r; do
 		RULES+=($r)
 	done <$rulesFile
 
-	izbira=$(zenity --list --title "Brisanje pravil..." --text "Izberi pravilo za izbris" --column "Ime" "${RULES[@]}" 2>/dev/null)
+	choice=$(zenity --list --title "Delete rule..." --text "Choose rule to delete" --column "Name" "${RULES[@]}" 2>/dev/null)
 	
-	if [[ -z "$izbira" ]]; then
+	if [[ -z "$choice" ]]; then
 		return 1
 	else
-		sed -i "/$izbira/d" $rulesFile
+		sed -i "/$choice/d" $rulesFile
 	fi
 
-	echo "$izbira"
+	echo "$choice"
 }
 
-dodajPravilo()
+addRule()
 {
-	ime="$1"
-	efekt=$(oknoEfekt)
-	if [[ -z "$efekt" ]]; then
+	name="$1"
+	effect=$(windowEffect)
+	if [[ -z "$effect" ]]; then
 		return 1
 	fi
 	
-	barva="0,0,0"
-	if [[ "$efekt" != "RGB_Krog" ]]; then
-		barva=$(echo $(oknoBarva) | tr -d '().argb')
-		if [[ -z "$barva" ]]; then
+	color="0,0,0"
+	if [[ "$effect" != "RGB" ]]; then
+		color=$(echo $(windowColors) | tr -d '().argb')
+		if [[ -z "$color" ]]; then
 			return 1
 		fi
 	fi
 	
-	hitrost=0
-	if [[ "$efekt" != "Staticno" ]]; then
-		hitrost=$(oknoHitrost)
-		if [[ -z "$hitrost" ]]; then
+	speed=0
+	if [[ "$effect" != "Static" ]]; then
+		speed=$(windowSpeed)
+		if [[ -z "$speed" ]]; then
 			return 1
 		fi
 	fi
 
-	if [[ "$efekt" == "Staticno" ]]; then
-		efekt=1
-	elif [[ "$efekt" == "Utripanje" ]]; then
-		efekt=2
-	elif [[ "$efekt" == "RGB_Krog" ]]; then
-		efekt=3
+	if [[ "$effect" == "Static" ]]; then
+		effect=1
+	elif [[ "$effect" == "Blinking" ]]; then
+		effect=2
+	elif [[ "$effect" == "RGB" ]]; then
+		effect=3
 	else
 		efekt=1
 	fi
-
-	#echo "ime: $ime"
-	#echo "efekt: $efekt"
-	#echo "barva: $barva"
-	#echo "hitrost: $hitrost"
 	
-	pravilo="$ime,$efekt,$barva,$hitrost"
-	echo "$pravilo" >> $rulesFile
+	rule="$name,$effect,$color,$speed"
+	echo "$rule" >> $rulesFile
 }
 
-oknoCPU()
+windowCPU()
 {
-	mode="PRAVILA"
+	mode="RULES"
 	if [ ! -f $settingsFile ]; then
 		touch "$settingsFile"
 		echo "0" > "$settingsFile"
@@ -156,16 +152,16 @@ oknoCPU()
 }
 
 
-oknoDodajPravilo()
+windowAddRule()
 {
-	dialog=$(zenity --question --title 'G213 Auto LED preklopnik' \
-	--text '-Dodajanje novega pravila-' \
-	--extra-button 'Izberi med procesi' \
-	--cancel-label 'NAZAJ' \
-	--ok-label 'Izberi datoteko' \
-	--extra-button 'Vnesi ime' \
-	--extra-button 'Globalno' \
-	--extra-button "CPU Indikator" \
+	dialog=$(zenity --width 500 --height 100 --question --title 'G213 LED switcher' \
+	--text '-Add new rule-' \
+	--extra-button 'Select process' \
+	--cancel-label 'CANCEL' \
+	--ok-label 'Choose file' \
+	--extra-button 'Enter name' \
+	--extra-button 'Global' \
+	--extra-button "CPU Indicator" \
 	--timeout 0 2>/dev/null)
 	rc=$?
 	echo "${rc}-${dialog}"
@@ -180,7 +176,7 @@ MAIN()
 	elif [[ "$line" == "2" ]]; then
 		mode="GLOBAL"
 	elif [[ "$line" == "0" ]]; then
-		mode="PRAVILA"
+		mode="RULES"
 	fi
 	
 	st=$(pgrep g213switcher)
@@ -192,20 +188,20 @@ MAIN()
 	
 	ret=$(start)
 
-	if [[ "$ret" == "1-Dodaj pravilo" ]]; then #Dodaj novo pravilo
-		ret=$(oknoDodajPravilo)
-		if [[ "$ret" == "1-Izberi med procesi" ]]; then #Izberi med procesi
-			prog=$(oknoProcesi)
+	if [[ "$ret" == "1-Add rule" ]]; then #Add new rule
+		ret=$(windowAddRule)
+		if [[ "$ret" == "1-Select process" ]]; then #Select process
+			prog=$(windowProcesses)
 		elif [[ "$ret" == "0-" ]]; then
-			prog=$(oknoIzberiDat)
-		elif [[ "$ret" == "1-Vnesi ime" ]]; then
-			prog=$(oknoVnesiIme)
-		elif [[ "$ret" == "1-Globalno" ]]; then
+			prog=$(windowChooseFile)
+		elif [[ "$ret" == "1-Enter name" ]]; then
+			prog=$(windowEnterName)
+		elif [[ "$ret" == "1-Global" ]]; then
 			prog="G"
 			echo '2' > $settingsFile #Globalno
-			zenity --warning --text="Globalni nacin je vklopljen. Vsa pravila razen globalnega se ne uspostevajo." 2>/dev/null
-		elif [[ "$ret" == "1-CPU Indikator" ]]; then
-			oknoCPU
+			zenity --warning --text="Global mode is active. Only global rules will be active." 2>/dev/null
+		elif [[ "$ret" == "1-CPU Indicator" ]]; then
+			windowCPU
 			cpu=$?
 			if [[ "$cpu" -eq 1 ]]; then
 				zenity --warning --text="CPU Ind. ON" 2>/dev/null	
@@ -213,10 +209,10 @@ MAIN()
 				zenity --warning --text="CPU Ind. OFF" 2>/dev/null		
 			fi
 		fi
-	elif [[ "$ret" == "1-Brisi pravila" ]]; then
-		pravilo="x"
-		while [ "$pravilo" != "" ]; do
-			pravilo=$(oknoBrisi)
+	elif [[ "$ret" == "1-Delete rule" ]]; then
+		rule="x"
+		while [ "$rule" != "" ]; do
+			rule=$(windowDelete)
 		done
 	elif [[ "$ret" == "0-" ]]; then
 		if [[ "$programState" == "START" ]]; then
@@ -230,7 +226,7 @@ MAIN()
 	fi
 
 	if [[ ! -z "$prog" ]]; then
-		dodajPravilo "$prog"
+		addRule "$prog"
 	fi
 
 	MAIN
